@@ -5,6 +5,10 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://weatherapprender-production.up.railway.app',
+]
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-@b1!2ua=qn*h%@18th^68%l#-ry(ntbz$30#&7e7=sq+kt1oq0'
