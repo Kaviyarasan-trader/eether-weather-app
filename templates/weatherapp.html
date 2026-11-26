@@ -1,0 +1,18 @@
+{% extends 'index.html' %}
+{% block title %}Weather overview · Aether Weather{% endblock %}
+{% block eyebrow %}Live conditions{% endblock %}
+{% block heading %}Your weather, beautifully clear.{% endblock %}
+{% block subtitle %}Real-time conditions, hourly trends and live metrics for your location.{% endblock %}
+{% block content %}
+<div id="pageRoot">
+  <div class="hero-grid"><div class="card sk-card skeleton"></div><div class="card sk-card skeleton"></div></div>
+  <div class="quick-grid"><div class="card sk-card skeleton"></div><div class="card sk-card skeleton"></div><div class="card sk-card skeleton"></div></div>
+</div>
+<noscript>
+  <div class="card card-pad">
+    <h2>Add a city</h2>
+    <form method="POST">{% csrf_token %}{{ form.as_p }}<button class="btn" type="submit">Add city</button></form>
+  </div>
+</noscript>
+<script type="application/json" id="legacyMessages">[{% for message in messages %}{"message":"{{ message|escapejs }}","tags":"{{ message.tags|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]</script>
+{% endblock %}

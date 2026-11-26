@@ -1,0 +1,7 @@
+django
+django-jazzmin
+requests
+gunicorn
+whitenoise
+google.generativeai
+pymupdf

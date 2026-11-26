@@ -1,0 +1,172 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#eaf1fb">
+  <script>
+    // Apply the visitor's saved theme before CSS paints to avoid a flash.
+    (function () {
+      var id = null;
+      try { id = localStorage.getItem('aether:guest:id'); } catch (e) { id = null; }
+      if (!id) {
+        id = (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : 'g-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+        try { localStorage.setItem('aether:guest:id', id); } catch (e) {}
+      }
+      var theme = 'light';
+      try { theme = localStorage.getItem('aether:guest:theme:' + id) || 'light'; } catch (e) { theme = 'light'; }
+      theme = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', theme === 'light' ? '#eaf1fb' : '#070c17');
+    })();
+  </script>
+  <title>{% block title %}{{ page_title }} · Aether Weather{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body data-page="{{ page }}">
+  <div style="display:none">{% csrf_token %}</div>
+  <div class="atmosphere" id="atmosphere">
+    <div class="sky-gradient"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="stars"></div>
+    <div class="precip precip-rain"></div>
+    <div class="precip precip-snow"></div>
+    <div class="lightning" id="lightning"></div>
+  </div>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><i class="fa-solid fa-cloud-sun"></i></div>
+        <div>
+          <div class="brand-name">Aether Weather</div>
+          <div class="brand-sub">Atmospheric intelligence</div>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-link" data-nav="home" href="{% url 'Home' %}"><i class="fa-solid fa-house"></i> Home</a>
+        <a class="nav-link" data-nav="forecast" href="{% url 'Forecast' %}"><i class="fa-solid fa-chart-simple"></i> Forecast</a>
+        <a class="nav-link" data-nav="radar" href="{% url 'Radar' %}"><i class="fa-solid fa-map-location-dot"></i> Radar</a>
+        <a class="nav-link" data-nav="air" href="{% url 'AirQuality' %}"><i class="fa-solid fa-wind"></i> Air Quality</a>
+        <a class="nav-link" data-nav="settings" href="{% url 'Settings' %}"><i class="fa-solid fa-sliders"></i> Settings</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Explore</div>
+        <a class="nav-link" data-nav="insights" href="{% url 'Insights' %}"><i class="fa-solid fa-wand-magic-sparkles"></i> Assistant</a>
+        <a class="nav-link" data-nav="astronomy" href="{% url 'Astronomy' %}"><i class="fa-solid fa-moon"></i> Astronomy</a>
+        <a class="nav-link" data-nav="alerts" href="{% url 'Alerts' %}"><i class="fa-solid fa-triangle-exclamation"></i> Alerts</a>
+        <a class="nav-link" data-nav="uv" href="{% url 'UVSun' %}"><i class="fa-solid fa-sun"></i> UV &amp; Sun</a>
+      </div>
+
+      <div class="sidebar-spacer"></div>
+      <div class="side-locations">
+        <div class="nav-label">Saved locations</div>
+        <div id="sideLocations"><div class="side-city">Loading…</div></div>
+      </div>
+      <div class="sidebar-foot">Live data · OpenWeatherMap &amp; NOAA</div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+        <button class="location-trigger" id="locationTrigger" aria-label="Switch location">
+          <span class="loc-pin"><i class="fa-solid fa-location-dot"></i></span>
+          <span class="loc-text">
+            <span class="loc-name" id="topCity">Location not enabled</span>
+            <span class="loc-meta" id="topMeta">Click Enable Location to begin</span>
+          </span>
+          <i class="fa-solid fa-chevron-down" style="font-size:9px;color:var(--muted-2)"></i>
+        </button>
+        <div class="top-actions">
+          <span class="clock-chip" id="clockChip">--:--</span>
+          <button class="location-enable-btn" id="currentLocationBtn" title="Enable location" aria-label="Enable location"><i class="fa-solid fa-crosshairs"></i><span>Enable Location</span></button>
+          <button class="icon-btn" id="refreshBtn" title="Refresh data" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button>
+          <button class="icon-btn" id="themeBtn" title="Switch to dark mode" aria-label="Switch to dark mode"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+          <button class="icon-btn accent" id="searchBtn" title="Search city" aria-label="Search city"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+      </header>
+
+      <main class="content">
+        <!-- PAGE_VIEW_START -->
+        <div id="pageView" data-page="{{ page }}" data-title="{{ page_title }} · Aether Weather">
+          <div class="page-intro">
+            <div class="page-eyebrow">{% block eyebrow %}Live conditions{% endblock %}</div>
+            <h1 class="page-heading">{% block heading %}{{ page_title }}{% endblock %}</h1>
+            <p class="page-subtitle" id="pageSubtitle">{% block subtitle %}Real-time atmospheric data for your location.{% endblock %}</p>
+          </div>
+          <div id="globalAlert"></div>
+          {% block content %}{% endblock %}
+        </div>
+        <!-- PAGE_VIEW_END -->
+      </main>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="{% url 'Home' %}" data-nav="home"><i class="fa-solid fa-house"></i><span>Home</span></a>
+    <a href="{% url 'Forecast' %}" data-nav="forecast"><i class="fa-solid fa-chart-simple"></i><span>Forecast</span></a>
+    <a href="{% url 'Radar' %}" data-nav="radar"><i class="fa-solid fa-map-location-dot"></i><span>Radar</span></a>
+    <a href="{% url 'AirQuality' %}" data-nav="air"><i class="fa-solid fa-wind"></i><span>Air</span></a>
+    <a href="{% url 'Settings' %}" data-nav="settings"><i class="fa-solid fa-sliders"></i><span>Settings</span></a>
+  </nav>
+
+  <div class="modal" id="searchModal" role="dialog" aria-modal="true" aria-label="Search for a city">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-panel">
+      <div class="modal-input-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input class="modal-input" id="searchInput" type="text" placeholder="Search any city…" autocomplete="off" spellcheck="false">
+        <button class="icon-btn location-enable-compact" id="geoBtn" title="Enable location" aria-label="Enable location"><i class="fa-solid fa-crosshairs"></i><span>Enable Location</span></button>
+        <button class="icon-btn" data-close-modal title="Close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="search-results" id="searchResults"><div class="search-hint">Type at least two characters to search cities worldwide.</div></div>
+    </div>
+  </div>
+
+  <div class="app-loading" id="appLoading" role="status" aria-live="polite" aria-busy="false" hidden>
+    <div class="app-loading-card">
+      <div class="app-loading-spinner"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i></div>
+      <div class="app-loading-title" id="appLoadingText">Detecting your location...</div>
+      <div class="app-loading-sub">Finding your city and loading live weather.</div>
+    </div>
+  </div>
+
+  <!-- Leaflet keeps its DOM here while another page is active. -->
+  <div id="radarMapHost" hidden aria-hidden="true"></div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script>
+    window.APP_CONFIG = {
+      page: "{{ page }}",
+      cartoKey: "{{ carto_api_key|escapejs }}",
+      urls: {
+        weather: "{% url 'APIWeather' %}",
+        search: "{% url 'APISearch' %}",
+        locations: "{% url 'APILocations' %}",
+        settings: "{% url 'APISettings' %}",
+        assistant: "{% url 'APIAssistant' %}",
+        radar: "{% url 'APIRadar' %}",
+        tile: "{% url 'APITile' 'LAYER' 0 0 0 %}"
+      }
+    };
+  </script>
+  <script src="{% static 'js/charts.js' %}"></script>
+  <script src="{% static 'js/app.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
